@@ -1,0 +1,11 @@
+{
+    "name": "mbjtravel/mbjtravel",
+    "description": "Mayurbhanj Tourism Planner",
+    "type": "project",
+    "require": {
+        "phpmailer/phpmailer": "^7.0"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}

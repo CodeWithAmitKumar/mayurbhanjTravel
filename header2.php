@@ -18,7 +18,7 @@ $profile_email = trim((string) ($profile_user['email'] ?? ''));
 $profile_initial = strtoupper(substr($profile_name !== '' ? $profile_name : 'T', 0, 1));
 $current_page = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
 $home_active = in_array($current_page, ['welcome.php', 'profile.php', 'change-password.php'], true) ? 'active' : '';
-$destination_active = $current_page === 'destination.php' ? 'active' : '';
+$destination_active = in_array($current_page, ['destination.php', 'alldestination.php'], true) ? 'active' : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">

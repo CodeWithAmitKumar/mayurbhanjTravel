@@ -416,6 +416,19 @@ $admin_id = $_SESSION['admin_id'];
                     </div>
                 </a>
 
+                 <a href="all_destination.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-map-marker-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>All Destination</h3>
+                        <p>Configure all destination</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
+
                 
             </div>
         </div>

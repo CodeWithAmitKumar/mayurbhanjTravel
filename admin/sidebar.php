@@ -1,5 +1,14 @@
 <?php
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
+
+$queryBadgeCount = 0;
+$queryTableExists = mysqli_query($conn, "SHOW TABLES LIKE 'contact_queries'");
+
+if ($queryTableExists && mysqli_num_rows($queryTableExists) > 0) {
+    $queryCountResult = mysqli_query($conn, "SELECT COUNT(*) AS total_queries FROM contact_queries");
+    $queryBadgeData = $queryCountResult ? mysqli_fetch_assoc($queryCountResult) : null;
+    $queryBadgeCount = (int) ($queryBadgeData['total_queries'] ?? 0);
+}
 ?>
 <!-- Sidebar -->
 <div class="sidebar">
@@ -29,10 +38,12 @@ $currentPage = basename($_SERVER['PHP_SELF'], '.php');
                 <i class="fa fa-envelope"></i>
                 Email Settings
             </a>
-            <a href="all_queries.php" class="menu-item">
+            <a href="all_queries.php" class="menu-item <?php echo $currentPage === 'all_queries' ? 'active' : ''; ?>">
                 <i class="fa fa-envelope"></i>
                 Queries
-                <span class="badge">3</span>
+                <?php if ($queryBadgeCount > 0): ?>
+                <span class="badge"><?php echo $queryBadgeCount; ?></span>
+                <?php endif; ?>
             </a>
             <a href="#" class="menu-item">
                 <i class="fa fa-users"></i>

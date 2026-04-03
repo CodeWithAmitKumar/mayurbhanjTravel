@@ -1,7 +1,80 @@
-<?php 
+<?php
 include 'config.php';
+require_once 'lib/contact_query_helper.php';
+
 $settings = mysqli_fetch_assoc(mysqli_query($conn, "SELECT `email`, `mobile`, `address`, `map_url` FROM `header_settings` WHERE 1 LIMIT 1"));
-include 'header.php'; ?>
+
+$form_message = '';
+$form_message_type = '';
+$form_data = [
+    'name' => '',
+    'email' => '',
+    'subject' => '',
+    'message' => '',
+];
+
+try {
+    mbj_ensure_contact_queries_table($conn);
+} catch (Throwable $throwable) {
+    $form_message = 'We could not load the contact form right now. Please try again in a moment.';
+    $form_message_type = 'danger';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $form_data['name'] = trim((string) ($_POST['name'] ?? ''));
+    $form_data['email'] = trim((string) ($_POST['email'] ?? ''));
+    $form_data['subject'] = trim((string) ($_POST['subject'] ?? ''));
+    $form_data['message'] = trim((string) ($_POST['message'] ?? ''));
+
+    if ($form_data['name'] === '' || $form_data['email'] === '' || $form_data['subject'] === '' || $form_data['message'] === '') {
+        $form_message = 'Please fill in all fields before sending your message.';
+        $form_message_type = 'danger';
+    } elseif (!filter_var($form_data['email'], FILTER_VALIDATE_EMAIL)) {
+        $form_message = 'Please enter a valid email address.';
+        $form_message_type = 'danger';
+    } else {
+        try {
+            $queryId = mbj_store_contact_query($conn, $form_data);
+            $storedQuery = mbj_get_contact_query_by_id($conn, $queryId);
+
+            if (!$storedQuery) {
+                throw new RuntimeException('Unable to read the saved query.');
+            }
+
+            $replyResult = [
+                'sent' => false,
+                'subject' => '',
+                'error' => '',
+            ];
+
+            try {
+                $replyResult = mbj_send_contact_auto_reply($conn, $storedQuery);
+            } catch (Throwable $throwable) {
+                $replyResult['error'] = $throwable->getMessage();
+            }
+
+            mbj_update_contact_query_reply_status(
+                $conn,
+                $queryId,
+                (bool) $replyResult['sent'],
+                (string) ($replyResult['subject'] ?? ''),
+                (string) ($replyResult['error'] ?? '')
+            );
+
+            $form_message = $replyResult['sent']
+                ? 'Your query has been sent successfully. We have also emailed you a confirmation message.'
+                : 'Your query has been sent successfully. We will contact you soon.';
+            $form_message_type = 'success';
+            $form_data = ['name' => '', 'email' => '', 'subject' => '', 'message' => ''];
+        } catch (Throwable $throwable) {
+            $form_message = 'We could not send your query right now. Please try again.';
+            $form_message_type = 'danger';
+        }
+    }
+}
+
+include 'header.php';
+?>
 
         <div class="container-fluid bg-primary py-5 mb-5 hero-header">
             <div class="container py-5">
@@ -69,29 +142,34 @@ include 'header.php'; ?>
                         tabindex="0"></iframe>
                 </div>
                 <div class="col-lg-4 col-md-12 wow fadeInUp" data-wow-delay="0.5s">
-                    <form>
+                    <?php if ($form_message !== ''): ?>
+                    <div class="alert alert-<?php echo $form_message_type === 'success' ? 'success' : 'danger'; ?>">
+                        <?php echo htmlspecialchars($form_message, ENT_QUOTES, 'UTF-8'); ?>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" action="">
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="name" placeholder="Your Name">
+                                    <input type="text" class="form-control" id="name" name="name" placeholder="Your Name" value="<?php echo htmlspecialchars($form_data['name'], ENT_QUOTES, 'UTF-8'); ?>" required>
                                     <label for="name">Your Name</label>
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-floating">
-                                    <input type="email" class="form-control" id="email" placeholder="Your Email">
+                                    <input type="email" class="form-control" id="email" name="email" placeholder="Your Email" value="<?php echo htmlspecialchars($form_data['email'], ENT_QUOTES, 'UTF-8'); ?>" required>
                                     <label for="email">Your Email</label>
                                 </div>
                             </div>
                             <div class="col-12">
                                 <div class="form-floating">
-                                    <input type="text" class="form-control" id="subject" placeholder="Subject">
+                                    <input type="text" class="form-control" id="subject" name="subject" placeholder="Subject" value="<?php echo htmlspecialchars($form_data['subject'], ENT_QUOTES, 'UTF-8'); ?>" required>
                                     <label for="subject">Subject</label>
                                 </div>
                             </div>
                             <div class="col-12">
                                 <div class="form-floating">
-                                    <textarea class="form-control" placeholder="Leave a message here" id="message" style="height: 100px"></textarea>
+                                    <textarea class="form-control" placeholder="Leave a message here" id="message" name="message" style="height: 100px" required><?php echo htmlspecialchars($form_data['message'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                                     <label for="message">Message</label>
                                 </div>
                             </div>

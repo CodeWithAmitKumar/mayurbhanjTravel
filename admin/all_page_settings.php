@@ -429,6 +429,43 @@ $admin_id = $_SESSION['admin_id'];
                     </div>
                 </a>
 
+                 <a href="allhotels.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-hotel"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>All Hotels</h3>
+                        <p>Configure all hotels</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
+                 <a href="allguides.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>All Guides</h3>
+                        <p>Configure all guides</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
+                <a href="alltransport.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-car"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>All Transport</h3>
+                        <p>Configure all transport</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
+
                 
             </div>
         </div>

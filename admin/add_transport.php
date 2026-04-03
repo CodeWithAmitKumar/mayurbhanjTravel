@@ -1,0 +1,800 @@
+<?php
+session_start();
+
+require_once '../config.php';
+require_once '../lib/transport_helper.php';
+
+if (!isset($_SESSION['admin_id'])) {
+    header('Location: index.php');
+    exit();
+}
+
+function h($value)
+{
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+}
+
+$error = '';
+$transport = [
+    'transport_id' => 0,
+    'vehicle_image' => '',
+    'driver_image' => '',
+    'vehicle_details' => '',
+    'price' => '',
+    'driver_details' => '',
+    'driver_phone_no' => '',
+    'driver_address' => '',
+    'is_active' => 1,
+];
+
+try {
+    mbj_ensure_transport_table($conn);
+    mbj_ensure_transport_upload_dir();
+} catch (Throwable $throwable) {
+    $error = $throwable->getMessage();
+}
+
+$requestedTransportId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+if ($error === '' && $requestedTransportId > 0) {
+    try {
+        $existingTransport = mbj_get_transport_by_id($conn, $requestedTransportId);
+        if ($existingTransport) {
+            $transport = $existingTransport;
+        } else {
+            $error = 'The selected transport could not be found.';
+        }
+    } catch (Throwable $throwable) {
+        $error = $throwable->getMessage();
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $error === '') {
+    $postedTransportId = isset($_POST['transport_id']) ? (int) $_POST['transport_id'] : 0;
+    $vehicleDetails = trim((string) ($_POST['vehicle_details'] ?? ''));
+    $price = trim((string) ($_POST['price'] ?? ''));
+    $driverDetails = trim((string) ($_POST['driver_details'] ?? ''));
+    $driverPhoneNo = trim((string) ($_POST['driver_phone_no'] ?? ''));
+    $driverAddress = trim((string) ($_POST['driver_address'] ?? ''));
+    $isActive = isset($_POST['is_active']) && (int) $_POST['is_active'] === 0 ? 0 : 1;
+
+    $vehicleFile = $_FILES['vehicle_image'] ?? ['name' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_NO_FILE, 'size' => 0];
+    $driverFile = $_FILES['driver_image'] ?? ['name' => '', 'tmp_name' => '', 'error' => UPLOAD_ERR_NO_FILE, 'size' => 0];
+
+    $transport = [
+        'transport_id' => $postedTransportId,
+        'vehicle_image' => $transport['vehicle_image'] ?? '',
+        'driver_image' => $transport['driver_image'] ?? '',
+        'vehicle_details' => $vehicleDetails,
+        'price' => $price,
+        'driver_details' => $driverDetails,
+        'driver_phone_no' => $driverPhoneNo,
+        'driver_address' => $driverAddress,
+        'is_active' => $isActive,
+    ];
+
+    try {
+        $existingTransport = $postedTransportId > 0 ? mbj_get_transport_by_id($conn, $postedTransportId) : null;
+        if ($postedTransportId > 0 && !$existingTransport) {
+            throw new RuntimeException('The selected transport could not be found.');
+        }
+
+        if ($existingTransport) {
+            $transport['vehicle_image'] = (string) ($existingTransport['vehicle_image'] ?? '');
+            $transport['driver_image'] = (string) ($existingTransport['driver_image'] ?? '');
+        }
+
+        $validationErrors = [];
+        if ($vehicleDetails === '') {
+            $validationErrors[] = 'Vehicle details are required.';
+        }
+        if ($price === '') {
+            $validationErrors[] = 'Price is required.';
+        }
+        if ($driverDetails === '') {
+            $validationErrors[] = 'Driver details are required.';
+        }
+        if ($driverPhoneNo === '') {
+            $validationErrors[] = 'Driver phone number is required.';
+        }
+        if ($driverAddress === '') {
+            $validationErrors[] = 'Driver address is required.';
+        }
+
+        $vehicleFileError = mbj_validate_transport_image($vehicleFile, 'vehicle image', $existingTransport === null || empty($existingTransport['vehicle_image']));
+        if ($vehicleFileError !== '') {
+            $validationErrors[] = $vehicleFileError;
+        }
+
+        $driverFileError = mbj_validate_transport_image($driverFile, 'driver image', $existingTransport === null || empty($existingTransport['driver_image']));
+        if ($driverFileError !== '') {
+            $validationErrors[] = $driverFileError;
+        }
+
+        if (!empty($validationErrors)) {
+            throw new RuntimeException(implode(' ', $validationErrors));
+        }
+
+        $newVehicleImage = '';
+        $newDriverImage = '';
+        $vehicleImagePath = $existingTransport['vehicle_image'] ?? '';
+        $driverImagePath = $existingTransport['driver_image'] ?? '';
+
+        if (($vehicleFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE && trim((string) ($vehicleFile['name'] ?? '')) !== '') {
+            $newVehicleImage = mbj_save_transport_image($vehicleFile, 'vehicle');
+            $vehicleImagePath = $newVehicleImage;
+        }
+
+        if (($driverFile['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE && trim((string) ($driverFile['name'] ?? '')) !== '') {
+            $newDriverImage = mbj_save_transport_image($driverFile, 'driver');
+            $driverImagePath = $newDriverImage;
+        }
+
+        mysqli_begin_transaction($conn);
+
+        try {
+            if ($existingTransport) {
+                $stmt = mysqli_prepare(
+                    $conn,
+                    "UPDATE transports
+                     SET vehicle_image = ?, driver_image = ?, vehicle_details = ?, price = ?, driver_details = ?, driver_phone_no = ?, driver_address = ?, is_active = ?
+                     WHERE transport_id = ?"
+                );
+
+                if (!$stmt) {
+                    throw new RuntimeException('Unable to prepare transport update statement.');
+                }
+
+                mysqli_stmt_bind_param(
+                    $stmt,
+                    'sssssssii',
+                    $vehicleImagePath,
+                    $driverImagePath,
+                    $vehicleDetails,
+                    $price,
+                    $driverDetails,
+                    $driverPhoneNo,
+                    $driverAddress,
+                    $isActive,
+                    $postedTransportId
+                );
+
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new RuntimeException(mysqli_error($conn));
+                }
+            } else {
+                $stmt = mysqli_prepare(
+                    $conn,
+                    "INSERT INTO transports (vehicle_image, driver_image, vehicle_details, price, driver_details, driver_phone_no, driver_address, is_active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+                );
+
+                if (!$stmt) {
+                    throw new RuntimeException('Unable to prepare transport insert statement.');
+                }
+
+                mysqli_stmt_bind_param(
+                    $stmt,
+                    'sssssssi',
+                    $vehicleImagePath,
+                    $driverImagePath,
+                    $vehicleDetails,
+                    $price,
+                    $driverDetails,
+                    $driverPhoneNo,
+                    $driverAddress,
+                    $isActive
+                );
+
+                if (!mysqli_stmt_execute($stmt)) {
+                    throw new RuntimeException(mysqli_error($conn));
+                }
+            }
+
+            mysqli_commit($conn);
+
+            if ($existingTransport && $newVehicleImage !== '' && $existingTransport['vehicle_image'] !== '' && $existingTransport['vehicle_image'] !== $newVehicleImage) {
+                mbj_remove_transport_image($existingTransport['vehicle_image']);
+            }
+            if ($existingTransport && $newDriverImage !== '' && $existingTransport['driver_image'] !== '' && $existingTransport['driver_image'] !== $newDriverImage) {
+                mbj_remove_transport_image($existingTransport['driver_image']);
+            }
+
+            header('Location: alltransport.php?message=' . ($existingTransport ? 'updated' : 'created'));
+            exit();
+        } catch (Throwable $throwable) {
+            mysqli_rollback($conn);
+            if ($newVehicleImage !== '') {
+                mbj_remove_transport_image($newVehicleImage);
+            }
+            if ($newDriverImage !== '') {
+                mbj_remove_transport_image($newDriverImage);
+            }
+            throw $throwable;
+        }
+    } catch (Throwable $throwable) {
+        $error = $throwable->getMessage();
+    }
+}
+
+$isEdit = (int) ($transport['transport_id'] ?? 0) > 0;
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title><?php echo $isEdit ? 'Edit Transport' : 'Add Transport'; ?> - Mayurbhanj Tourism Planner</title>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.10.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary: #86B817;
+            --primary-dark: #6a9612;
+            --dark: #14141F;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --bg: #f3f4f6;
+            --white: #ffffff;
+            --border: #e5e7eb;
+            --danger: #b91c1c;
+            --danger-bg: #fee2e2;
+            --sidebar-width: 260px;
+            --header-height: 70px;
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Heebo', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: var(--sidebar-width);
+            height: 100vh;
+            background: linear-gradient(180deg, var(--dark), #2d2d3a);
+            z-index: 1000;
+            overflow-y: auto;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .sidebar-brand {
+            height: var(--header-height);
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-brand h1 {
+            color: var(--white);
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-brand i {
+            color: var(--primary);
+        }
+
+        .sidebar-menu {
+            padding: 20px 0;
+        }
+
+        .menu-section {
+            padding: 0 20px;
+            margin-bottom: 10px;
+        }
+
+        .menu-section-title {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .menu-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 20px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            border-radius: 10px;
+            margin: 5px 10px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: 0.3s ease;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            transform: translateX(5px);
+        }
+
+        .menu-item.active {
+            background: var(--primary);
+            color: var(--white);
+            box-shadow: 0 4px 15px rgba(134, 184, 23, 0.4);
+        }
+
+        .menu-item i {
+            width: 20px;
+            margin-right: 12px;
+            font-size: 16px;
+        }
+
+        .menu-item .badge {
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+        }
+
+        .header {
+            height: var(--header-height);
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .toggle-sidebar {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg);
+            border-radius: 10px;
+            cursor: pointer;
+            border: none;
+            font-size: 18px;
+            color: var(--text);
+        }
+
+        .page-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 600;
+        }
+
+        .main-content {
+            margin-left: var(--sidebar-width);
+            min-height: 100vh;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            text-decoration: none;
+            margin-bottom: 18px;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--white);
+            border-radius: 20px;
+            padding: 34px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            width: 320px;
+            height: 320px;
+            right: -80px;
+            top: -120px;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 50%;
+        }
+
+        .hero h1 {
+            margin: 0 0 10px;
+            font-size: 30px;
+        }
+
+        .hero p {
+            margin: 0;
+            opacity: 0.92;
+        }
+
+        .alert {
+            padding: 14px 18px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            background: var(--danger-bg);
+            color: var(--danger);
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 20px;
+            box-shadow: var(--shadow);
+            padding: 28px;
+        }
+
+        .card-title {
+            margin: 0 0 22px;
+            font-size: 22px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-title i {
+            color: var(--primary);
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
+        }
+
+        .upload-card {
+            background: var(--bg);
+            border-radius: 18px;
+            padding: 18px;
+        }
+
+        .upload-box {
+            position: relative;
+            min-height: 260px;
+            border-radius: 16px;
+            border: 2px dashed #cbd5e1;
+            background: var(--white);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 16px;
+            overflow: hidden;
+            cursor: pointer;
+        }
+
+        .upload-box.has-image {
+            border-style: solid;
+            border-color: var(--primary);
+        }
+
+        .upload-box input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-hint i {
+            font-size: 36px;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+
+        .upload-hint span {
+            display: block;
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .upload-hint.hidden {
+            display: none;
+        }
+
+        .preview {
+            width: 100%;
+            height: 260px;
+            object-fit: cover;
+            border-radius: 14px;
+            display: none;
+        }
+
+        .preview.active {
+            display: block;
+        }
+
+        .current-image-note {
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 18px;
+            margin-top: 24px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .input,
+        .select,
+        .textarea {
+            width: 100%;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 13px 14px;
+            font: inherit;
+            background: var(--white);
+        }
+
+        .input:focus,
+        .select:focus,
+        .textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(134, 184, 23, 0.12);
+        }
+
+        .textarea {
+            resize: vertical;
+            min-height: 140px;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            border: none;
+            border-radius: 12px;
+            text-decoration: none;
+            padding: 14px 22px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-secondary {
+            background: #edf2f7;
+            color: var(--text);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--white);
+        }
+
+        @media (max-width: 991px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .field-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero h1 {
+                font-size: 24px;
+            }
+
+            .actions {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <?php include 'sidebar.php'; ?>
+
+    <div class="main-content">
+        <?php include 'header.php'; ?>
+
+        <div class="content">
+            <a href="alltransport.php" class="back-link"><i class="fa fa-arrow-left"></i> Back to All Transport</a>
+
+            <div class="hero">
+                <h1><i class="fa fa-car"></i> <?php echo $isEdit ? 'Edit Transport' : 'Add New Transport'; ?></h1>
+                <p>Manage vehicle image, driver image, vehicle details, price, driver details, phone number, and address.</p>
+            </div>
+
+            <?php if ($error !== ''): ?>
+                <div class="alert"><i class="fa fa-exclamation-circle"></i> <?php echo h($error); ?></div>
+            <?php endif; ?>
+
+            <div class="card">
+                <h2 class="card-title"><i class="fa fa-edit"></i> Transport Details</h2>
+
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="transport_id" value="<?php echo (int) ($transport['transport_id'] ?? 0); ?>">
+
+                    <div class="form-grid">
+                        <div class="upload-card">
+                            <label class="label">Vehicle Image</label>
+                            <?php $vehicleImage = (string) ($transport['vehicle_image'] ?? ''); ?>
+                            <div class="upload-box <?php echo $vehicleImage !== '' ? 'has-image' : ''; ?>">
+                                <div class="upload-hint <?php echo $vehicleImage !== '' ? 'hidden' : ''; ?>" id="vehicleUploadHint">
+                                    <i class="fa fa-cloud-upload-alt"></i>
+                                    <span>Click to upload vehicle image<br>JPG, PNG, GIF, WEBP up to 5MB</span>
+                                </div>
+                                <img src="<?php echo $vehicleImage !== '' ? '../' . h($vehicleImage) : ''; ?>" alt="Vehicle preview" id="vehiclePreview" class="preview <?php echo $vehicleImage !== '' ? 'active' : ''; ?>">
+                                <input type="file" name="vehicle_image" accept="image/*" onchange="previewImage(this, 'vehiclePreview', 'vehicleUploadHint')">
+                            </div>
+                            <div class="current-image-note">
+                                <?php echo $isEdit ? 'Upload a new vehicle image only if you want to replace the current one.' : 'Vehicle image is required for a new transport.'; ?>
+                            </div>
+                        </div>
+
+                        <div class="upload-card">
+                            <label class="label">Driver Image</label>
+                            <?php $driverImage = (string) ($transport['driver_image'] ?? ''); ?>
+                            <div class="upload-box <?php echo $driverImage !== '' ? 'has-image' : ''; ?>">
+                                <div class="upload-hint <?php echo $driverImage !== '' ? 'hidden' : ''; ?>" id="driverUploadHint">
+                                    <i class="fa fa-cloud-upload-alt"></i>
+                                    <span>Click to upload driver image<br>JPG, PNG, GIF, WEBP up to 5MB</span>
+                                </div>
+                                <img src="<?php echo $driverImage !== '' ? '../' . h($driverImage) : ''; ?>" alt="Driver preview" id="driverPreview" class="preview <?php echo $driverImage !== '' ? 'active' : ''; ?>">
+                                <input type="file" name="driver_image" accept="image/*" onchange="previewImage(this, 'driverPreview', 'driverUploadHint')">
+                            </div>
+                            <div class="current-image-note">
+                                <?php echo $isEdit ? 'Upload a new driver image only if you want to replace the current one.' : 'Driver image is required for a new transport.'; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field-grid">
+                        <div class="field full">
+                            <label class="label">Vehicle Details</label>
+                            <textarea name="vehicle_details" class="textarea" placeholder="Enter vehicle details"><?php echo h($transport['vehicle_details'] ?? ''); ?></textarea>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Price</label>
+                            <input type="text" name="price" class="input" value="<?php echo h($transport['price'] ?? ''); ?>" placeholder="Example: Rs. 3,500 / day">
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Status</label>
+                            <select name="is_active" class="select">
+                                <option value="1" <?php echo (int) ($transport['is_active'] ?? 1) === 1 ? 'selected' : ''; ?>>Active</option>
+                                <option value="0" <?php echo (int) ($transport['is_active'] ?? 1) === 0 ? 'selected' : ''; ?>>Inactive</option>
+                            </select>
+                        </div>
+
+                        <div class="field full">
+                            <label class="label">Driver Details</label>
+                            <textarea name="driver_details" class="textarea" placeholder="Enter driver details"><?php echo h($transport['driver_details'] ?? ''); ?></textarea>
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Driver Phone No</label>
+                            <input type="text" name="driver_phone_no" class="input" value="<?php echo h($transport['driver_phone_no'] ?? ''); ?>" placeholder="Enter driver phone number">
+                        </div>
+
+                        <div class="field">
+                            <label class="label">Driver Address</label>
+                            <input type="text" name="driver_address" class="input" value="<?php echo h($transport['driver_address'] ?? ''); ?>" placeholder="Enter driver address">
+                        </div>
+                    </div>
+
+                    <div class="actions">
+                        <a href="alltransport.php" class="btn btn-secondary"><i class="fa fa-times"></i> Cancel</a>
+                        <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> <?php echo $isEdit ? 'Update Transport' : 'Save Transport'; ?></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function previewImage(input, previewId, hintId) {
+            const file = input.files[0];
+            if (!file) {
+                return;
+            }
+
+            const preview = document.getElementById(previewId);
+            const hint = document.getElementById(hintId);
+            const reader = new FileReader();
+
+            reader.onload = function(event) {
+                preview.src = event.target.result;
+                preview.classList.add('active');
+                input.closest('.upload-box').classList.add('has-image');
+                if (hint) {
+                    hint.classList.add('hidden');
+                }
+            };
+
+            reader.readAsDataURL(file);
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            if (window.innerWidth <= 768) {
+                sidebar.style.transform = sidebar.style.transform === 'translateX(0px)' ? 'translateX(-100%)' : 'translateX(0)';
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -269,6 +269,9 @@ $destination_active = in_array($current_page, ['destination.php', 'alldestinatio
             <nav class="header2-nav">
                 <a href="welcome.php" class="<?php echo $home_active; ?>">Home</a>
                 <a href="alldestination.php" class="<?php echo $destination_active; ?>">Destinations</a>
+                <a href="ourguides.php" class="<?php echo $guides_active; ?>">Guides</a>
+                <a href="ourtransport.php" class="<?php echo $transport_active; ?>">Transport</a>
+                <a href="ourhotels.php" class="<?php echo $hotels_active; ?>">Hotels</a>
             </nav>
 
             <div class="header2-actions">

@@ -61,32 +61,66 @@ if ($reviewTableExists) {
 
 
 
-$featuredDestinations = [
-    [
-        'name' => 'Thailand',
-        'price' => 'Rs. 24,999',
-        'tag' => 'Tropical Escape',
-        'image' => 'uploads/image1_1775142400.jpg',
-    ],
-    [
-        'name' => 'Malaysia',
-        'price' => 'Rs. 29,499',
-        'tag' => 'City And Nature',
-        'image' => 'uploads/image2_1775142400.jpg',
-    ],
-    [
-        'name' => 'Australia',
-        'price' => 'Rs. 54,999',
-        'tag' => 'Adventure Trail',
-        'image' => 'uploads/image3_1775142400.jpg',
-    ],
-    [
-        'name' => 'Indonesia',
-        'price' => 'Rs. 27,999',
-        'tag' => 'Island Retreat',
-        'image' => 'uploads/image4_1775142400.jpg',
-    ],
-];
+function format_destination_price($price)
+{
+    $price = trim((string) $price);
+    if ($price === '') {
+        return 'Rs 0';
+    }
+
+    if (stripos($price, 'rs') === 0) {
+        return $price;
+    }
+
+    return 'Rs ' . $price;
+}
+
+$featuredDestinations = [];
+$destinationTableResult = mysqli_query($conn, "SHOW TABLES LIKE 'all_destinations'");
+$destinationTableExists = $destinationTableResult && mysqli_num_rows($destinationTableResult) > 0;
+
+if ($destinationTableExists) {
+    $featuredDestinationResult = mysqli_query($conn, "SELECT destination_id, destinationimage, subheading, titel, price, sort_order, created_at, updated_at FROM all_destinations ORDER BY sort_order ASC, destination_id ASC LIMIT 4");
+    if ($featuredDestinationResult) {
+        while ($destinationRow = mysqli_fetch_assoc($featuredDestinationResult)) {
+            $featuredDestinations[] = [
+                'name' => trim((string) ($destinationRow['titel'] ?? '')),
+                'price' => format_destination_price($destinationRow['price'] ?? ''),
+                'tag' => trim((string) ($destinationRow['subheading'] ?? '')),
+                'image' => trim((string) ($destinationRow['destinationimage'] ?? '')),
+            ];
+        }
+    }
+}
+
+if (empty($featuredDestinations)) {
+    $featuredDestinations = [
+        [
+            'name' => 'Thailand',
+            'price' => 'Rs 24,999',
+            'tag' => 'Tropical Escape',
+            'image' => 'uploads/image1_1775142400.jpg',
+        ],
+        [
+            'name' => 'Malaysia',
+            'price' => 'Rs 29,499',
+            'tag' => 'City And Nature',
+            'image' => 'uploads/image2_1775142400.jpg',
+        ],
+        [
+            'name' => 'Australia',
+            'price' => 'Rs 54,999',
+            'tag' => 'Adventure Trail',
+            'image' => 'uploads/image3_1775142400.jpg',
+        ],
+        [
+            'name' => 'Indonesia',
+            'price' => 'Rs 27,999',
+            'tag' => 'Island Retreat',
+            'image' => 'uploads/image4_1775142400.jpg',
+        ],
+    ];
+}
 
 
 

@@ -226,6 +226,7 @@ include 'header2.php';
 
     .destination-card-description.is-collapsed {
         display: -webkit-box;
+        line-clamp: 3;
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;

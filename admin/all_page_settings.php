@@ -403,6 +403,18 @@ $admin_id = $_SESSION['admin_id'];
                         <i class="fa fa-arrow-right"></i>
                     </div>
                 </a>
+                <a href="client-review.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-star"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Client Review</h3>
+                        <p>Configure client review</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
 
                 
             </div>

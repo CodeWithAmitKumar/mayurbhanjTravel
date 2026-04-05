@@ -19,6 +19,9 @@ $profile_initial = strtoupper(substr($profile_name !== '' ? $profile_name : 'T',
 $current_page = basename(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
 $home_active = in_array($current_page, ['welcome.php', 'profile.php', 'change-password.php'], true) ? 'active' : '';
 $destination_active = in_array($current_page, ['destination.php', 'alldestination.php'], true) ? 'active' : '';
+$guides_active = $current_page === 'ourguides.php' ? 'active' : '';
+$transport_active = $current_page === 'ourtransport.php' ? 'active' : '';
+$hotels_active = $current_page === 'ourhotels.php' ? 'active' : '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -99,6 +102,29 @@ $destination_active = in_array($current_page, ['destination.php', 'alldestinatio
             display: flex;
             align-items: center;
             gap: 14px;
+        }
+
+        .header2-book-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px 22px;
+            border-radius: 999px;
+            background: linear-gradient(135deg, #0d6efd, #ff7f50);
+            box-shadow: 0 14px 30px rgba(13, 110, 253, 0.22);
+            color: #fff;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            text-decoration: none;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .header2-book-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 34px rgba(13, 110, 253, 0.28);
+            color: #fff;
         }
 
         .header2-profile-dropdown {
@@ -241,6 +267,10 @@ $destination_active = in_array($current_page, ['destination.php', 'alldestinatio
         }
 
         @media (max-width: 575.98px) {
+            .header2-book-btn {
+                width: 100%;
+            }
+
             .header2-profile-dropdown,
             .header2-profile-toggle {
                 width: 100%;
@@ -275,6 +305,10 @@ $destination_active = in_array($current_page, ['destination.php', 'alldestinatio
             </nav>
 
             <div class="header2-actions">
+                <a href="booktrip.php" class="header2-book-btn">
+                    <i class="fas fa-calendar-check"></i>
+                    <span>Book Now</span>
+                </a>
                 <div class="header2-profile-dropdown" data-profile-dropdown>
                     <button type="button" class="header2-profile-toggle" data-profile-toggle aria-expanded="false">
                         <span class="header2-profile-icon"><?php echo htmlspecialchars($profile_initial, ENT_QUOTES, 'UTF-8'); ?></span>

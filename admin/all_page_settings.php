@@ -466,6 +466,20 @@ $admin_id = $_SESSION['admin_id'];
                     </div>
                 </a>
 
+                <!-- nearby places -->
+                 <a href="all_nearbyplaces.php" class="settings-card">
+                    <div class="card-icon">
+                        <i class="fa fa-map-marker-alt"></i>
+                    </div>
+                    <div class="card-content">
+                        <h3>Nearby Places</h3>
+                        <p>Configure nearby places</p>
+                    </div>
+                    <div class="card-arrow">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </a>
+
                 
             </div>
         </div>

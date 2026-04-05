@@ -108,6 +108,7 @@ if (!function_exists('mbj_send_smtp_email')) {
             $mail->Username = $smtpUsername;
             $mail->Password = $smtpPassword;
             $mail->CharSet = 'UTF-8';
+            $mail->Timeout = 10; // fail fast — do not hang for 30+ seconds
 
             if ($smtpEncryption === 'ssl') {
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
@@ -118,9 +119,24 @@ if (!function_exists('mbj_send_smtp_email')) {
                 $mail->SMTPAutoTLS = false;
             }
 
-            $mail->setFrom($fromEmail, $fromName !== '' ? $fromName : $fromEmail);
+            // When using Gmail SMTP, the From address must be the authenticated Gmail
+            // account or an approved alias. Fall back to smtp_username if from_email
+            // belongs to a different domain so Gmail does not reject the message.
+            $effectiveFromEmail = $fromEmail;
+            $smtpDomain = substr(strrchr($smtpUsername, '@'), 1);
+            $fromDomain  = substr(strrchr($fromEmail, '@'), 1);
+            if (
+                $smtpDomain !== '' &&
+                $fromDomain  !== '' &&
+                strtolower($smtpDomain) !== strtolower($fromDomain)
+            ) {
+                // smtp username domain differs from from_email domain — use smtp username
+                $effectiveFromEmail = $smtpUsername;
+            }
+
+            $mail->setFrom($effectiveFromEmail, $fromName !== '' ? $fromName : $effectiveFromEmail);
             $mail->addAddress($emailData['to_email'], $emailData['to_name'] ?? '');
-            $mail->addReplyTo($fromEmail, $fromName !== '' ? $fromName : $fromEmail);
+            $mail->addReplyTo($effectiveFromEmail, $fromName !== '' ? $fromName : $effectiveFromEmail);
             $mail->isHTML(true);
             $mail->Subject = (string) ($emailData['subject'] ?? '');
             $mail->Body = (string) ($emailData['html_body'] ?? '');

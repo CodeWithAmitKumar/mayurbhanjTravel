@@ -316,6 +316,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="form-group">
                             <label class="form-label"><i class="fa fa-envelope"></i> From Email</label>
                             <input type="email" name="from_email" class="form-control" value="<?php echo isset($settings['from_email']) ? htmlspecialchars($settings['from_email']) : ''; ?>" placeholder="noreply@yourdomain.com">
+                            <p class="form-hint">
+                                <i class="fa fa-exclamation-triangle" style="color:#b26a00"></i>
+                                <strong>Gmail users:</strong> This must match your Gmail address (e.g. <em><?php echo htmlspecialchars($settings['smtp_username'] ?? '', ENT_QUOTES, 'UTF-8'); ?></em>).
+                                Gmail SMTP does not allow sending from unrelated domains.
+                            </p>
                         </div>
                         <div class="form-group">
                             <label class="form-label"><i class="fa fa-user"></i> From Name</label>
@@ -324,7 +329,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
             </div>
-<!-- 
             <div class="form-card">
                 <div class="form-card-header">
                     <i class="fa fa-bell"></i>
@@ -360,15 +364,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="form-group full-width">
                             <label class="form-label"><i class="fa fa-paper-plane"></i> Test Recipient Email</label>
                             <input type="email" name="test_email" class="form-control" value="<?php echo htmlspecialchars($test_email); ?>" placeholder="Enter an email address to receive a test message">
-                            <p class="form-hint">Use this after saving your SMTP details to confirm the connection and sender settings are working.</p>
+                            <p class="form-hint">Use this after saving your SMTP details to confirm email is working. Save settings first, then click <strong>Save &amp; Send Test</strong>.</p>
                         </div>
                     </div>
                 </div>
-            </div> -->
+            </div>
 
             <div class="form-actions">
                 <a href="page_setting.php" class="btn btn-secondary"><i class="fa fa-arrow-left"></i> Back</a>
-                <!-- <button type="submit" form="email_settings_form" name="action" value="send_test" class="btn btn-secondary"><i class="fa fa-paper-plane"></i> Save & Send Test</button> -->
+                <button type="submit" form="email_settings_form" name="action" value="send_test" class="btn btn-secondary"><i class="fa fa-paper-plane"></i> Save &amp; Send Test</button>
                 <button type="submit" form="email_settings_form" name="action" value="save" class="btn btn-primary"><i class="fa fa-save"></i> Save Settings</button>
             </div>
             </form>

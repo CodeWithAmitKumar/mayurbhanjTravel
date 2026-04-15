@@ -45,7 +45,7 @@ if ($queryTableExists && mysqli_num_rows($queryTableExists) > 0) {
                 <span class="badge"><?php echo $queryBadgeCount; ?></span>
                 <?php endif; ?>
             </a>
-            <a href="#" class="menu-item">
+            <a href="allbookings.php" class="menu-item <?php echo $currentPage === 'allbookings' ? 'active' : ''; ?>">
                 <i class="fa fa-users"></i>
                 Bookings
             </a>

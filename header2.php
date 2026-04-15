@@ -323,6 +323,11 @@ $hotels_active = $current_page === 'ourhotels.php' ? 'active' : '';
                             <i class="fas fa-user-circle"></i>
                             <span>Profile</span>
                         </a>
+                         <a href="mybookings.php" class="header2-profile-link">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>My Bookings</span>
+                        </a>
+
                         <a href="change-password.php" class="header2-profile-link">
                             <i class="fas fa-key"></i>
                             <span>Change Password</span>

@@ -354,7 +354,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             </div>
 
-            <div class="form-card">
+            <!-- <div class="form-card">
                 <div class="form-card-header">
                     <i class="fa fa-vial"></i>
                     <h3>Test Email</h3>
@@ -368,11 +368,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     </div>
                 </div>
-            </div>
+            </div> -->
 
             <div class="form-actions">
                 <a href="page_setting.php" class="btn btn-secondary"><i class="fa fa-arrow-left"></i> Back</a>
-                <button type="submit" form="email_settings_form" name="action" value="send_test" class="btn btn-secondary"><i class="fa fa-paper-plane"></i> Save &amp; Send Test</button>
+                <!-- <button type="submit" form="email_settings_form" name="action" value="send_test" class="btn btn-secondary"><i class="fa fa-paper-plane"></i> Save &amp; Send Test</button> -->
                 <button type="submit" form="email_settings_form" name="action" value="save" class="btn btn-primary"><i class="fa fa-save"></i> Save Settings</button>
             </div>
             </form>

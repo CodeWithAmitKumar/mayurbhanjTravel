@@ -13,7 +13,7 @@ if ($queryTableExists && mysqli_num_rows($queryTableExists) > 0) {
 <!-- Sidebar -->
 <div class="sidebar">
     <div class="sidebar-brand">
-        <h1><i class="fa fa-map-marker-alt"></i> MBJ Travel</h1>
+        <h1><i class="fa fa-map-marker-alt"></i> MBJ Travels</h1>
     </div>
     <div class="sidebar-menu">
         <div class="menu-section">

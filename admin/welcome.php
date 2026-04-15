@@ -388,7 +388,7 @@ function h($v) { return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
             <div class="hero">
                 <div class="hero-text">
                     <h1>Welcome back, <?php echo h($username); ?>! 👋</h1>
-                    <p>Here's a live snapshot of your Mayurbhanj Tourism platform — bookings, users, destinations and hotels all in one place.</p>
+                    
                 </div>
                 <div class="hero-badge">
                     <span class="big"><?php echo $totalBookings; ?></span>
